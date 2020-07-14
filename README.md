@@ -42,7 +42,7 @@ end
 Given the locations `P` and `distances` (vctor of tuples with indices and distances), we can now estimate the posterior:
 ```julia
 part, chain = posterior(
-    P,
+    Pn,
     distances;
     nsamples = 2000,
     sampler = NUTS(),

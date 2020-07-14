@@ -77,7 +77,7 @@ end
     N = 10
 
     σL = 0.1
-    σD = 0.1
+    σD = 0.01
 
     P = randn(2,N)
     Pn = P + σL*randn(size(P))
@@ -87,7 +87,7 @@ end
 
 
     distances = []
-    p = 0.3
+    p = 0.6
     for i = 1:N
         for j = i+1:N-1
             rand() < p || continue
@@ -99,9 +99,9 @@ end
 
 
     part, chain = posterior(
-        P,
+        Pn,
         distances;
-        nsamples = 2000,
+        nsamples = 1500,
         sampler = NUTS(),
         σL = σL,
         σD = σD
@@ -112,13 +112,13 @@ end
     if isinteractive()
         scatter(part.P[1,:], part.P[2,:], markersize=6)
         scatter!(P[1,:], P[2,:], lab="True positions")
-        scatter!(Pn[1,:], Pn[2,:], lab="Measured positions")
+        scatter!(Pn[1,:], Pn[2,:], lab="Measured positions") |> display
     end
 
 
 
     part, res = posterior(
-        P,
+        Pn,
         distances;
         sampler = MAP(),
         σL = σL,
@@ -129,7 +129,7 @@ end
     if isinteractive()
         scatter(part.P[1,:], part.P[2,:], markersize=6)
         scatter!(P[1,:], P[2,:], lab="True positions")
-        scatter!(Pn[1,:], Pn[2,:], lab="Measured positions")
+        scatter!(Pn[1,:], Pn[2,:], lab="Measured positions") |> display
     end
 
 end

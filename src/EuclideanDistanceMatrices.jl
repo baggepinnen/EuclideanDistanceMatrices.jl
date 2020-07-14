@@ -154,16 +154,18 @@ function posterior(
 
         P0 ~ MvNormal(vec(locations), σL) # These denote the true locations
         P = reshape(P0, dim, N)
-        # d = Vector{T}(undef, Nd) # These are the estimated errors in the distance measurements
-        d = MvNormal(zeros(Nd), σD) # These are the estimated errors in the distance measurements
-
+        # de = Vector{T}(undef, Nd) # These are the estimated errors in the distance measurements
+        dh = Vector{T}(undef, Nd) # These are the predicted distance measurements
+        # de ~ MvNormal(Nd, σD) # These are the estimated errors in the distance measurements
+        d = sqrt.(getindex.(distances, 3))
         for ind in eachindex(distances)
             (i,j,di) = distances[ind]
-            dh = sum(abs2, P[:,i] - P[:,j]) # This is the predicted SqEuclidean given the posterior location
-            # d[ind] ~ Normal(dh-di, σD) # Assume normal noise in delay measurements
-            de = (dh-di) # Predicted error
-            de ~ d # Assume normal noise in delay measurements
+            dh[ind] = norm(P[:,i] - P[:,j]) # This is the predicted SqEuclidean given the posterior location
+            # de[ind] = (dh-di) # Predicted error
+            # de ~ d[ind] # Assume normal noise in delay measurements
+            # de[ind] ~ Normal(dh-sqrt(di), σD) # Assume normal noise in delay measurements
         end
+        d ~ MvNormal(dh, σD) # These are the estimated errors in the distance measurements
     end
 
     m = model(locations, distances)
@@ -182,9 +184,9 @@ function posterior(
         names = StatsBase.params(res)
 
         Pinds = findfirst.([==("P0[$i]") for i in eachindex(locations)], Ref(names))
-        dinds = findfirst.([==("de[$i]") for i in eachindex(distances)], Ref(names))
+        dinds = findfirst.([==("d[$i]") for i in eachindex(distances)], Ref(names))
 
-        Pde = Particles(MvNormal(Vector(c), Matrix(C)))
+        Pde = Particles(MvNormal(Vector(c), Symmetric(Matrix(C) + 0.1*min(σL,σD)^2*I)))
         P = reshape(Pde[Pinds], dim, N)
         de = Pde[dinds]
         (P=P, de=de), res
