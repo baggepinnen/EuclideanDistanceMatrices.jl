@@ -1,6 +1,6 @@
 using EuclideanDistanceMatrices
 using Test, LinearAlgebra, Statistics
-using Distances
+using Distances, Turing, Optim
 
 
 @testset "lowrankapprox" begin
@@ -71,8 +71,8 @@ end
 
 end
 
-@testset "psoterior" begin
-    @info "Testing psoterior"
+@testset "posterior" begin
+    @info "Testing posterior"
 
     N = 10
 
@@ -81,45 +81,53 @@ end
 
     P = randn(2,N)
     Pn = P + σL*randn(size(P))
-    D = pairwise(SqEuclidean(), P, dims=2)
+    D = pairwise(Euclidean(), P, dims=2)
     Dn = D + σD*randn(size(D))
     Dn[diagind(Dn)] .= 0
 
 
     distances = []
-    p = 0.6
+    noisy_distances = []
+    p = 0.5
     for i = 1:N
-        for j = i+1:N-1
-            rand() < p || continue
-            push!(distances, (i,j,Dn[i,j]))
+        for j = i+1:N
+            if rand() < p
+                push!(distances, (i,j,D[i,j]))
+                push!(noisy_distances, (i,j,Dn[i,j]))
+            end
         end
     end
     @show length(distances)
-    @show expected = p*(N^2-N)÷2
+    @show expected = p*((N^2-N)÷2)
 
 
     part, chain = posterior(
         Pn,
-        distances;
+        noisy_distances;
         nsamples = 1500,
         sampler = NUTS(),
         σL = σL,
         σD = σD
     )
 
+
     @test norm(mean.(part.P) - P) < norm(Pn - P)
 
     if isinteractive()
-        scatter(part.P[1,:], part.P[2,:], markersize=6)
-        scatter!(P[1,:], P[2,:], lab="True positions")
-        scatter!(Pn[1,:], Pn[2,:], lab="Measured positions") |> display
+        scatter(part.P[1,:], part.P[2,:], markersize=6, layout=2, sp=1)
+        scatter!(P[1,:], P[2,:], lab="True positions", sp=1)
+        scatter!(Pn[1,:], Pn[2,:], lab="Measured positions", sp=1)
+        bar!(vec(D), sp=2, lab="True dist")
+        bar!(vec(Dn), sp=2, lab="Measured dist", alpha=0.7)
+        scatter!(vec(part.d), sp=2, seriestype=:scatter, lab="") |> display
     end
 
 
 
     part, res = posterior(
         Pn,
-        distances;
+        noisy_distances,
+        LBFGS(),
         sampler = MAP(),
         σL = σL,
         σD = σD
@@ -127,9 +135,14 @@ end
     @test norm(mean.(part.P) - P) < norm(Pn - P)
 
     if isinteractive()
-        scatter(part.P[1,:], part.P[2,:], markersize=6)
-        scatter!(P[1,:], P[2,:], lab="True positions")
-        scatter!(Pn[1,:], Pn[2,:], lab="Measured positions") |> display
+        scatter(part.P[1,:], part.P[2,:], markersize=6, layout=2, sp=1)
+        scatter!(P[1,:], P[2,:], lab="True positions", sp=1)
+        scatter!(Pn[1,:], Pn[2,:], lab="Measured positions", sp=1)
+        bar!(vec(D), sp=2, lab="True dist")
+        bar!(vec(Dn), sp=2, lab="Measured dist", alpha=0.7)
+        scatter!(vec(part.d), sp=2, seriestype=:scatter, lab="") |> display
     end
+
+
 
 end

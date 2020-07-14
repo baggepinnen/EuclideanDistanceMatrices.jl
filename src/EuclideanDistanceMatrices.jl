@@ -139,25 +139,86 @@ end
 
 
 
+"""
+    part, result = posterior(locations::AbstractMatrix, distances, args...; nsamples = 3000, sampler = NUTS(), σL = 0.3, σD = 0.3)
 
+Compute the full Bayesian posterior over locations given noisy measurements of both locations and distances.
+
+# Arguments:
+- `locations`: A matrix with one point in each column.
+- `distances`: A vector of tuples `(i,j,d)` where `i,j` denotes the indices between the distance measured is `d` (not squared).
+- `args`: If any provided, they are sent to `optimize`. Can be used to supply a choice of optimizer of `MAP` estimation.
+- `nsamples`: How many samples to draw for MCMC sampling.
+- `sampler`: Any of the samplers or `MAP/MLE` supported by Turing
+- `σL`: The noise std in the locations.
+- `σD`: The noise std in the distances.
+
+`part` contains `part.P` and `part.d` with the posterior over locations and distances.
+
+# Example
+```julia
+N = 10
+
+σL = 0.1
+σD = 0.01
+
+P = randn(2,N)
+Pn = P + σL*randn(size(P))
+D = pairwise(Euclidean(), P, dims=2)
+Dn = D + σD*randn(size(D))
+Dn[diagind(Dn)] .= 0
+
+distances = []
+noisy_distances = []
+p = 0.5
+for i = 1:N
+    for j = i+1:N
+        if rand() < p
+            push!(distances, (i,j,D[i,j]))
+            push!(noisy_distances, (i,j,Dn[i,j]))
+        end
+    end
+end
+@show length(distances)
+@show expected = p*((N^2-N)÷2)
+
+part, chain = posterior(
+    Pn,
+    noisy_distances;
+    nsamples = 1500,
+    sampler = NUTS(),
+    σL = σL,
+    σD = σD
+)
+
+norm(mean.(part.P) - P) < norm(Pn - P)
+
+scatter(part.P[1,:], part.P[2,:], markersize=6, layout=2, sp=1)
+scatter!(P[1,:], P[2,:], lab="True positions", sp=1)
+scatter!(Pn[1,:], Pn[2,:], lab="Measured positions", sp=1)
+bar!(getindex.(distances, 3), sp=2, lab="True dist")
+bar!(getindex.(noisy_distances, 3), sp=2, lab="Measured dist", alpha=0.7)
+scatter!(part.d, sp=2, seriestype=:scatter) |> display
+```
+"""
 function posterior(
     locations::AbstractMatrix,
-    distances;
+    distances,
+    args...;
     nsamples = 3000,
     sampler = NUTS(),
     σL = 0.3,
-    σD = 0.3
+    σD = 0.3,
 )
     dim, N = size(locations)
     Nd = length(distances)
-    Turing.@model model(locations, distances, ::Type{T} = Float64) where {T} = begin
+    Turing.@model model(locations, distances, d, ::Type{T} = Float64) where {T} = begin
 
         P0 ~ MvNormal(vec(locations), σL) # These denote the true locations
         P = reshape(P0, dim, N)
         # de = Vector{T}(undef, Nd) # These are the estimated errors in the distance measurements
         dh = Vector{T}(undef, Nd) # These are the predicted distance measurements
         # de ~ MvNormal(Nd, σD) # These are the estimated errors in the distance measurements
-        d = sqrt.(getindex.(distances, 3))
         for ind in eachindex(distances)
             (i,j,di) = distances[ind]
             dh[ind] = norm(P[:,i] - P[:,j]) # This is the predicted SqEuclidean given the posterior location
@@ -165,31 +226,33 @@ function posterior(
             # de ~ d[ind] # Assume normal noise in delay measurements
             # de[ind] ~ Normal(dh-sqrt(di), σD) # Assume normal noise in delay measurements
         end
-        d ~ MvNormal(dh, σD) # These are the estimated errors in the distance measurements
+        d ~ MvNormal(dh, σD)
     end
 
-    m = model(locations, distances)
+    d = (getindex.(distances, 3))
+    m = model(locations, distances, d)
 
     if sampler isa Turing.Inference.InferenceAlgorithm
         @info "Starting sampling (this might take a while)"
         @time chain = sample(m, sampler, nsamples)
         nt = Particles(chain, crop=clamp(0, 500, nsamples-500))
-        nt = (nt..., P=reshape(nt.P0, dim, N))
+        P = reshape(nt.P0, dim, N)
+        nt = (nt..., P=P, d=[norm(P[:,i] - P[:,j]) for i in 1:N, j in 1:N])
         @info "Done"
         return nt, chain
     elseif typeof(sampler) ∈ (Turing.MAP, Turing.MLE)
-        res = optimize(m, sampler)
+        res = optimize(m, sampler, args...)
         c = StatsBase.coef(res)
         C = StatsBase.vcov(res)
         names = StatsBase.params(res)
 
         Pinds = findfirst.([==("P0[$i]") for i in eachindex(locations)], Ref(names))
-        dinds = findfirst.([==("d[$i]") for i in eachindex(distances)], Ref(names))
+        # dinds = findfirst.([==("d[$i]") for i in eachindex(distances)], Ref(names))
 
         Pde = Particles(MvNormal(Vector(c), Symmetric(Matrix(C) + 0.1*min(σL,σD)^2*I)))
         P = reshape(Pde[Pinds], dim, N)
-        de = Pde[dinds]
-        (P=P, de=de), res
+        # de = Pde[dinds]
+        (P=P, d=[norm(P[:,i] - P[:,j]) for i in 1:N, j in 1:N]), res
     end
     # chain
 end

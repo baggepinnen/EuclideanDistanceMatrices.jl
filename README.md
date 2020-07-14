@@ -5,11 +5,11 @@
 
 Utilities for working with matrices of squared Euclidean distances.
 
-- `D̃ = complete_distmat(D, W)`: Fills in missing entries in an incomplete and noisy distance matrix. `W` is a binary mask indicating available values.
+- `D̃ = complete_distmat(D, W)`: Fills in missing entries in an incomplete and noisy squared distance matrix. `W` is a binary mask indicating available values.
 - `P = reconstruct_pointset(D, dim)` Takes a squared distance matrix or the SVD of one and reconstructs the set of points embedded in dimension `dim` that generated `D`; up to a translation and rotation/reflection. See `procrustes` for help with aligning the result to a collection of anchors.
 - `R,t = procrustes(X, Y)` Find rotation matrix `R` and translation vector `t` such that `R*X .+ t ≈ Y`
 - `denoise_distmat(D, dim, p=2)` Takes a noisy squared distance matrix and returns a denoised version. `p` denotes the "norm" used in measuring the error. `p=2` assumes that the error is Gaussian, whereas `p=1` assumes that the error is large but sparse.
-- `posterior` Estimate the posterior distribution of locations given both noisy location measurements and distance measurements, see more details below.
+- `posterior` Estimate the posterior distribution of locations given both noisy location measurements and distance measurements (not squared), see more details below.
 
 
 ## Bayesian estimation of locations
@@ -17,11 +17,11 @@ If both noisy position estimates and noisy distance measurements are available, 
 ```julia
 N = 10    # Number of points
 σL = 0.1  # Location noise std
-σD = 0.1  # Distance noise std
+σD = 0.01 # Distance noise std (measured in the same unit as positions)
 
 P = randn(2,N) # These are the true locations
 Pn = P + σL*randn(size(P)) # Noisy locations
-D = pairwise(SqEuclidean(), P, dims=2) # True distance matrix
+D = pairwise(Euclidean(), P, dims=2) # True distance matrix (this function exoects distances, not squared distances).
 Dn = D + σD*randn(size(D)) # Noisy distance matrix
 Dn[diagind(Dn)] .= 0 # The diagonal is always 0
 
@@ -29,7 +29,7 @@ Dn[diagind(Dn)] .= 0 # The diagonal is always 0
 distances = []
 p = 0.3 # probability of including a distance
 for i = 1:N
-    for j = i+1:N-1
+    for j = i+1:N
         rand() < p || continue
         push!(distances, (i,j,Dn[i,j]))
     end
@@ -50,7 +50,7 @@ part, chain = posterior(
     σD = σD
 )
 ```
-The returned object `part` is a named tuple containing all the internal variables that were sampled. The fields are of type `Particles` from [MonteCarloMeasurements.jl](https://github.com/baggepinnen/MonteCarloMeasurements.jl), representing the full posterior distribution of each quantity. The interesting fields are `part.P` which contains the posterior positions, and `part.de` which contains the estimated errors in the distance measurements. The object `chain` contains the same information as `part`, but in the form of a `Turing.Chain` object.
+The returned object `part` is a named tuple containing all the internal variables that were sampled. The fields are of type `Particles` from [MonteCarloMeasurements.jl](https://github.com/baggepinnen/MonteCarloMeasurements.jl), representing the full posterior distribution of each quantity. The interesting fields are `part.P` which contains the posterior positions, and `part.d` which contains the estimated distances. The object `chain` contains the same information as `part`, but in the form of a `Turing.Chain` object.
 
 
 We can verify that the estimated locations are closer to the true locations than the ones provided by the measurements alone, and plot the results

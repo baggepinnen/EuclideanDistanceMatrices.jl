@@ -17,10 +17,18 @@ Turing = "fce5fe82-541a-59a6-adf8-730c64b5f9a0"
 Turing2MonteCarloMeasurements = "d5f69e58-3735-4fb1-9f31-04d391be4687"
 
 [compat]
+Convex = "0.13"
+Distances = "0.9"
+Distributions = "0.22"
+SCS = "0.6"
+StatsBase = "0.30, 0.31, 0.32"
+TotalLeastSquares = "1"
+Turing = "0.13"
 julia = "1.4"
 
 [extras]
+Optim = "429524aa-4258-5aef-a3af-852621145aeb"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Test"]
+test = ["Test", "Optim"]
