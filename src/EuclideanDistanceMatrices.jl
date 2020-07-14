@@ -256,13 +256,9 @@ function posterior(
 end
 
 
-
-
-function __build__()
-    Pkg.add(PackageSpec("https://github.com/baggepinnen/Turing2MonteCarloMeasurements.jl"))
-end
-
-
+# function __build__()
+#     Pkg.add(PackageSpec("https://github.com/baggepinnen/Turing2MonteCarloMeasurements.jl"))
+# end
 
 
 end
