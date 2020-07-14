@@ -72,6 +72,6 @@ Under the hood, [Turing.jl](https://turing.ml/dev/) is used to sample from the p
 ## Installation
 ```julia
 using Pkg
-Pkg.add("https://github.com/baggepinnen/EuclideanDistanceMatrices.jl")
-Pkg.build("EuclideanDistanceMatrices")
+pkg"add https://github.com/baggepinnen/EuclideanDistanceMatrices.jl"
+pkg"build EuclideanDistanceMatrices"
 ```
