@@ -15,6 +15,7 @@ Utilities for working with matrices of squared Euclidean distances.
 ## Bayesian estimation of locations
 If both noisy position estimates and noisy distance measurements are available, we can estimate the full Bayesian posterior over positions. To this end, the function `psoterior` is avialable. We demonstrate how it's used with an example, and start by generating some sythetic data:
 ```julia
+using EuclideanDistanceMatrices, Turing
 N = 10    # Number of points
 σL = 0.1  # Location noise std
 σD = 0.01 # Distance noise std (measured in the same unit as positions)
@@ -27,7 +28,7 @@ Dn[diagind(Dn)] .= 0 # The diagonal is always 0
 
 # We select a small number of distances to feed the algorithm, this corresponds to only some distances between points being measured
 distances = []
-p = 0.3 # probability of including a distance
+p = 0.5 # probability of including a distance
 for i = 1:N
     for j = i+1:N
         rand() < p || continue
@@ -35,11 +36,10 @@ for i = 1:N
     end
 end
 @show length(distances)
-@show expected_number_of_entries = p*(N^2-N)÷2
+@show expected_number_of_entries = p*((N^2-N)÷2)
 ```
 
-
-Given the locations `P` and `distances` (vctor of tuples with indices and distances), we can now estimate the posterior:
+Given the locations `P` and `distances` (vector of tuples with indices and distances), we can now estimate the posterior:
 ```julia
 part, chain = posterior(
     Pn,
@@ -65,7 +65,7 @@ scatter!(Pn[1,:], Pn[2,:], lab="Measured positions")
 
 
 
-Under the hood, [Turing.jl](https://turing.ml/dev/) is used to sample from the posterior. If you have a lot of points, it will take a while to run this function. If the sampling takes too long time, you may try estimating an MAP estimate instead. To do this, run `using Optim` and then pass `sampler = MAP`. More docs on MAP estimation is found [here](https://turing.ml/dev/docs/using-turing/guide#maximum-likelihood-and-maximum-a-posterior-estimates).
+Under the hood, [Turing.jl](https://turing.ml/dev/) is used to sample from the posterior. If you have a lot of points, it will take a while to run this function. If the sampling takes too long time, you may try estimating an MAP estimate instead. To do this, run `using Optim` and then pass `sampler = MAP()`. More docs on MAP estimation is found [here](https://turing.ml/dev/docs/using-turing/guide#maximum-likelihood-and-maximum-a-posterior-estimates).
 
 
 
