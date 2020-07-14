@@ -78,7 +78,7 @@ end
 
 
 
-function reconstruct_pointset(s::SVD,dim)
+function reconstruct_pointset(S::SVD,dim)
     X  = Diagonal(sqrt.(S.S[1:dim]))*S.Vt[1:dim, :]
 end
 
