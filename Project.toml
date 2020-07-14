@@ -1,0 +1,13 @@
+name = "EuclideanDistanceMatrices"
+uuid = "c8f64d0f-e1bf-44f5-895a-65a798a2fd63"
+authors = ["Fredrik Bagge Carlson"]
+version = "0.1.0"
+
+[compat]
+julia = "1.4"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]
