@@ -45,8 +45,8 @@ The set of points that created `D` can be reconstructed up to an arbitrary rotat
 X  = reconstruct_pointset(S, 2)
 
 # Verify that reconstructed `X` is correct up to rotation and translation
-A = [X' ones(size(D,1))]
-P2 = (A*(A \\ P'))'
+R,t = procrustes(X,P)
+P2 = R*X .+ t
 norm(P-P2)/norm(P) # Should be small
 ```
 
@@ -66,9 +66,7 @@ function complete_distmat(D, W, λ=2)
     E = diag(B)*e' + e*diag(B)' - 2*B
     problem = Convex.maximize(tr(G)- λ * norm(vec(W .* (E - D))), [G ∈ :SDP])
     Convex.solve!(problem, SCS.Optimizer)
-    if Int(problem.status) != 1
-        @error problem.status
-    end
+    Int(problem.status) == 1 || @error problem.status
     B  = Convex.evaluate(B)
     D2 = diag(B)*e' + e*diag(B)' - 2*B
     @info "Data fidelity (norm(W .* (D-D̃))/norm(D))", (norm(W .* (D-D2))/norm(D))
@@ -87,13 +85,15 @@ end
     reconstruct_pointset(D, dim)
 
 Takes a squared distance matrix or the SVD of one and reconstructs the set of points embedded in dimension `dim` that generated `D; up to a translation and rotation/reflection. See `procrustes` for help with aligning the result to a collection of anchors.
+
+The algorithm used if `D` is a distance matrix is called Multidimensional Scaling (MDS) https://en.wikipedia.org/wiki/Multidimensional_scaling
 """
 function reconstruct_pointset(D::AbstractMatrix, dim)
     n = size(D,1)
     J = I - fill(1/n, n, n)
     G = -1/2 * J*D*J
-    E = eigen(G)
-    Diagonal(sqrt.(E.values[1:dim]))*E.vectors'[1:dim, :]
+    E = eigen(Symmetric(G))
+    Diagonal(sqrt.(max.(E.values[end-dim+1:end], 0)))*E.vectors[:, end-dim+1:end]'
 end
 
 
@@ -136,8 +136,6 @@ function procrustes(X,Y)
     R = s.V*s.U'
     R, mY - R*mX
 end
-
-
 
 """
     part, result = posterior(locations::AbstractMatrix, distances, args...; nsamples = 3000, sampler = NUTS(), σL = 0.3, σD = 0.3)
