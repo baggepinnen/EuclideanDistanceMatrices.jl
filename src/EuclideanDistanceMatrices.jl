@@ -2,15 +2,16 @@ module EuclideanDistanceMatrices
 
 using LinearAlgebra, Statistics
 import Pkg
+using StatsBase
 using TotalLeastSquares
 import Convex
 using SCS
-using StatsBase
+using MonteCarloMeasurements
 using Turing, Distributions
 using Turing2MonteCarloMeasurements
 
 
-export complete_distmat, reconstruct_pointset, denoise_distmat, lowrankapprox, procrustes, posterior
+export complete_distmat, reconstruct_pointset, denoise_distmat, lowrankapprox, procrustes, posterior, align_to_mean
 
 """
     D̃, S = complete_distmat(D, W, λ = 2)
@@ -269,6 +270,19 @@ function posterior(
 end
 
 
+"""
+    align_to_mean(P)
+
+Takes an array of particles `P` and aligns all samples to the mean array using `procrustes`. This takes `P` from an estimate of absolute quantities to an estimate of relative quantities, which, in general, will exhibit lower variance.
+"""
+function align_to_mean(P)
+    m = mean.(P)
+    function apply_procrustes(X)
+        R, t = procrustes(X, m)
+        R * X .+ t
+    end
+    aligned_P = ℝⁿ2ℝⁿ_function(apply_procrustes, P)
+end
 
 
 end

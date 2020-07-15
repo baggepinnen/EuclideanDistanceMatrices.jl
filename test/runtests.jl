@@ -146,6 +146,12 @@ end
         end
 
 
+
+        aligned_P = align_to_mean(part.P)
+        @test tr(cov(vec(part.P))) > tr(cov(vec(aligned_P)))
+
+
+
         # Using TDOA measurements instead
 
 

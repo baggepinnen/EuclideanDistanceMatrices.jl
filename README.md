@@ -21,10 +21,10 @@ N = 10    # Number of points
 σL = 0.1  # Location noise std
 σD = 0.01 # Distance noise std (measured in the same unit as positions)
 
-P = randn(2,N) # These are the true locations
-Pn = P + σL*randn(size(P)) # Noisy locations
-D = pairwise(Euclidean(), P, dims=2) # True distance matrix (this function exoects distances, not squared distances).
-Dn = D + σD*randn(size(D)) # Noisy distance matrix
+P  = randn(2,N)                       # These are the true locations
+Pn = P + σL*randn(size(P))            # Noisy locations
+D  = pairwise(Euclidean(), P, dims=2) # True distance matrix (this function exoects distances, not squared distances).
+Dn = D + σD*randn(size(D))            # Noisy distance matrix
 Dn[diagind(Dn)] .= 0 # The diagonal is always 0
 
 # We select a small number of distances to feed the algorithm, this corresponds to only some distances between points being measured
@@ -74,8 +74,9 @@ In this setting, we add one location in the matrix of locations, corresponding t
 We then set the keyword `tdoa=true` when calling `posterior`, and let the vector of `(i, j, dist)` instead be `(i,j,tdoa)`. Below is a similar example to the one above, but adapted to this setting.
 ```julia
 N      = 10                      # Number of points
+# The standard deviations below can also be supplied as vectors with one element per location
 σL     = 0.1                     # Location noise std
-σD     = 0.01                    # Distance noise std (measured in the same unit as positions)
+σD     = 0.01                    # TDOA noise std (measured in the same unit as positions)
 P      = 3randn(2, N)            # These are the true locations
 source = randn(2)                # The true source location
 Pn     = P + σL * randn(size(P)) # Noisy locations
@@ -101,10 +102,10 @@ part, chain = posterior(
     [Pn source], # We add the source location to the end of this matrix
     noisy_tdoas;
     nsamples = 2000,
-    sampler = NUTS(),
-    σL = σL,
-    σD = σD,     # This can also be a vector of std:s for each location, see ?MvNormal for alternatives
-    tdoa = true, # Indicating that we are providing TDOA measurements
+    sampler  = NUTS(),
+    σL       = σL,
+    σD       = σD, # This can also be a vector of std:s for each location, see ?MvNormal for alternatives
+    tdoa     = true, # Indicating that we are providing TDOA measurements
 )
 
 norm(mean.(part.P[:, 1:end-1]) - P) < norm(Pn - P)
@@ -123,6 +124,15 @@ scatter!(
 scatter!([source[1]], [source[2]], m = (:x, 8), lab = "True Source") |> display
 ```
 ![posterior_tdoa](figs/posterior_tdoa.svg)
+
+
+
+### Relative vs. Absolute estimates
+The function `posterior` estimates the *absolute* positions of the sensors in the coordinate system used to provide the location measurements. Oftentimes, the relative positions between the sensors are sufficient, and are also easier to estimate. Estimates of the relative positions are available in the resulting samples from the posterior distribution, but hidden within the samples. If we draw 2000 samples from the posterior, the absolute coordinates of each sample can be aligned to the mean of all samples (using `procrustes`), after which 2000 samples of the relative positions are available. This relative estimate will have lower variance than the absolute estimate. To facilitate this alignment, we have the function
+```julia
+P_relative = align_to_mean(part.P)
+tr(cov(vec(part.P))) > tr(cov(vec(P_relative))) # Test that the covariance matrix is "smaller"
+```
 
 
 
