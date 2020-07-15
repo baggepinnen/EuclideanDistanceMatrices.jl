@@ -200,34 +200,47 @@ scatter!(part.d, sp=2, seriestype=:scatter) |> display
 ```
 """
 function posterior(
-    locations::AbstractMatrix,
+    locations::AbstractMatrix{S},
     distances,
     args...;
+    tdoa = false,
     nsamples = 3000,
     sampler = NUTS(),
     σL = 0.3,
     σD = 0.3,
-)
+) where S
     dim, N = size(locations)
     Nd = length(distances)
-    Turing.@model model(locations, distances, d, ::Type{T} = Float64) where {T} = begin
 
-        P0 ~ MvNormal(vec(locations), σL) # These denote the true locations
-        P = reshape(P0, dim, N)
-        # de = Vector{T}(undef, Nd) # These are the estimated errors in the distance measurements
-        dh = Vector{T}(undef, Nd) # These are the predicted distance measurements
-        # de ~ MvNormal(Nd, σD) # These are the estimated errors in the distance measurements
-        for ind in eachindex(distances)
-            (i,j,di) = distances[ind]
-            dh[ind] = norm(P[:,i] - P[:,j]) # This is the predicted SqEuclidean given the posterior location
-            # de[ind] = (dh-di) # Predicted error
-            # de ~ d[ind] # Assume normal noise in delay measurements
-            # de[ind] ~ Normal(dh-sqrt(di), σD) # Assume normal noise in delay measurements
+    if tdoa
+        d = abs.(getindex.(distances, 3))
+        Turing.@model model(locations, distances, d, ::Type{T} = Float64) where {T} = begin
+            P0 ~ MvNormal(vec(locations), σL) # These denote the true locations
+            P = reshape(P0, dim, N)
+            dh = Vector{T}(undef, Nd) # These are the predicted distance measurements
+            for ind in eachindex(distances)
+                (i,j,_) = distances[ind]
+                di = norm(P[:,i] - P[:,end]) # Distance from source to i
+                dj = norm(P[:,j] - P[:,end]) # Distance from source to j
+                dh[ind] = abs(di-dj) # This is the predicted TDOA given the posterior locations
+            end
+            d ~ MvNormal(dh, σD) # Observe TDOAs
         end
-        d ~ MvNormal(dh, σD)
+    else
+        d = (getindex.(distances, 3))
+        Turing.@model model(locations, distances, d, ::Type{T} = Float64) where {T} = begin
+            P0 ~ MvNormal(vec(locations), σL) # These denote the true locations
+            P = reshape(P0, dim, N)
+            dh = Vector{T}(undef, Nd) # These are the predicted distance measurements
+            for ind in eachindex(distances)
+                (i,j,_) = distances[ind]
+                dh[ind] = norm(P[:,i] - P[:,j]) # This is the predicted Euclidean distance given the posterior location
+            end
+            d ~ MvNormal(dh, σD) # Observe distances
+        end
     end
 
-    d = (getindex.(distances, 3))
+
     m = model(locations, distances, d)
 
     if sampler isa Turing.Inference.InferenceAlgorithm
@@ -256,9 +269,6 @@ function posterior(
 end
 
 
-# function __build__()
-#     Pkg.add(PackageSpec("https://github.com/baggepinnen/Turing2MonteCarloMeasurements.jl"))
-# end
 
 
 end

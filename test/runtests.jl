@@ -78,11 +78,12 @@ end
 
     end
 
+
+
     @testset "posterior" begin
         @info "Testing posterior"
 
         N = 10
-
         σL = 0.1
         σD = 0.01
 
@@ -144,6 +145,60 @@ end
             scatter!(vec(part.d), sp = 2, seriestype = :scatter, lab = "") |> display
         end
 
+
+        # Using TDOA measurements instead
+
+
+        N = 10
+        σL = 0.1
+        σD = 0.01
+
+        P = 3randn(2, N)
+        source = randn(2)
+        Pn = P + σL * randn(size(P))
+        distances = []
+        noisy_distances = []
+        p = 0.5
+        for i = 1:N
+            for j = i+1:N
+                if rand() < p
+                    di = norm(P[:, i] - source) # Distance from source to i
+                    dj = norm(P[:, j] - source) # Distance from source to j
+                    tdoa = di - dj # This is the predicted TDOA given the posterior locations
+                    push!(distances, (i, j, tdoa))
+                    push!(noisy_distances, (i, j, tdoa + σD * randn()))
+                end
+            end
+        end
+        @show length(distances)
+        @show expected = p * ((N^2 - N) ÷ 2)
+
+
+        part, chain = posterior(
+            [Pn source],
+            noisy_distances;
+            nsamples = 1500,
+            sampler = NUTS(),
+            σL = σL,
+            σD = σD,
+            tdoa = true,
+        )
+
+        @test norm(mean.(part.P[:, 1:end-1]) - P) < norm(Pn - P)
+
+        if isinteractive()
+            scatter(part.P[1, 1:end-1], part.P[2, 1:end-1], markersize = 6)
+            scatter!(P[1, :], P[2, :], lab = "True positions")
+            scatter!(Pn[1, :], Pn[2, :], lab = "Measured positions")
+            scatter!(
+                [part.P[1, end]],
+                [part.P[2, end]],
+                markersize = 10,
+                lab = "Est. Source",
+            )
+            scatter!([source[1]], [source[2]], markersize = 10, lab = "True Source") |>
+            display
+        end
 
     end
 

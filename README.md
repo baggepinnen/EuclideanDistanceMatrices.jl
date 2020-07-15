@@ -13,6 +13,7 @@ Utilities for working with matrices of squared Euclidean distances.
 
 
 ## Bayesian estimation of locations
+### With distance measurements
 If both noisy position estimates and noisy distance measurements are available, we can estimate the full Bayesian posterior over positions. To this end, the function `psoterior` is avialable. We demonstrate how it's used with an example, and start by generating some sythetic data:
 ```julia
 using EuclideanDistanceMatrices, Turing
@@ -46,8 +47,8 @@ part, chain = posterior(
     distances;
     nsamples = 2000,
     sampler = NUTS(),
-    σL = σL,
-    σD = σD
+    σL = σL, # This can also be a vector of std:s for each location, see ?MvNormal for alternatives
+    σD = σD  # This can also be a vector of std:s for each location, see ?MvNormal for alternatives
 )
 ```
 The returned object `part` is a named tuple containing all the internal variables that were sampled. The fields are of type `Particles` from [MonteCarloMeasurements.jl](https://github.com/baggepinnen/MonteCarloMeasurements.jl), representing the full posterior distribution of each quantity. The interesting fields are `part.P` which contains the posterior positions, and `part.d` which contains the estimated distances. The object `chain` contains the same information as `part`, but in the form of a `Turing.Chain` object.
@@ -66,6 +67,62 @@ scatter!(Pn[1,:], Pn[2,:], lab="Measured positions")
 
 
 Under the hood, [Turing.jl](https://turing.ml/dev/) is used to sample from the posterior. If you have a lot of points, it will take a while to run this function. If the sampling takes too long time, you may try estimating an MAP estimate instead. To do this, run `using Optim` and then pass `sampler = MAP()`. More docs on MAP estimation is found [here](https://turing.ml/dev/docs/using-turing/guide#maximum-likelihood-and-maximum-a-posterior-estimates).
+
+
+### With TDOA measurements (time difference of arrival, i.e., differences of distances)
+In this setting, we add one location in the matrix of locations, corresponding to the location of the source that generated the ping.
+We then set the keyword `tdoa=true` when calling `posterior`, and let the vector of `(i, j, dist)` instead be `(i,j,tdoa)`. Below is a similar example to the one above, but adapted to this setting.
+```julia
+N      = 10                      # Number of points
+σL     = 0.1                     # Location noise std
+σD     = 0.01                    # Distance noise std (measured in the same unit as positions)
+P      = 3randn(2, N)            # These are the true locations
+source = randn(2)                # The true source location
+Pn     = P + σL * randn(size(P)) # Noisy locations
+tdoas  = []
+noisy_tdoas = []
+p = 0.5 # probability of including a TDOA
+for i = 1:N
+    for j = i+1:N
+        if rand() < p
+            di = norm(P[:, i] - source) # Distance from source to i
+            dj = norm(P[:, j] - source) # Distance from source to j
+            tdoa = di - dj              # This is the predicted TDOA given the posterior locations
+            push!(tdoas, (i, j, tdoa))
+            push!(noisy_tdoas, (i, j, tdoa + σD * randn()))
+        end
+    end
+end
+@show length(tdoas)
+@show expected = p * ((N^2 - N) ÷ 2)
+
+
+part, chain = posterior(
+    [Pn source], # We add the source location to the end of this matrix
+    noisy_tdoas;
+    nsamples = 2000,
+    sampler = NUTS(),
+    σL = σL,
+    σD = σD,     # This can also be a vector of std:s for each location, see ?MvNormal for alternatives
+    tdoa = true, # Indicating that we are providing TDOA measurements
+)
+
+norm(mean.(part.P[:, 1:end-1]) - P) < norm(Pn - P)
+```
+Once again, we visualize the resulting estimate
+```julia
+scatter(part.P[1, 1:end-1], part.P[2, 1:end-1], markersize = 6)
+scatter!(P[1, :],  P[2, :],  lab = "True positions")
+scatter!(Pn[1, :], Pn[2, :], lab = "Measured positions")
+scatter!(
+    [part.P[1, end]],
+    [part.P[2, end]],
+    m = (:x, 8),
+    lab = "Est. Source",
+)
+scatter!([source[1]], [source[2]], m = (:x, 8), lab = "True Source") |> display
+```
+![posterior_tdoa](figs/posterior_tdoa.svg)
 
 
 
