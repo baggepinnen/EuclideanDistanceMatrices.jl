@@ -67,7 +67,7 @@ end
         W[diagind(W)] .= true
         D0 = W .* D                 # Remove missing entries
 
-        D3, E = rankcomplete_distmat(D0, W, 2)
+        D3, E = rankcomplete_distmat(D0, W, 2, verbose=false)
 
         @test (norm(D - D3) / norm(D)) < 0.2
         @test (norm(W .* (D - D3)) / norm(D)) < 1e-5

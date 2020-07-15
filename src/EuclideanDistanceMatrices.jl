@@ -77,7 +77,7 @@ end
 
 
 """
-    rankcomplete_distmat(D, W, dim; μ=mean(D[W]), iters=100, tol=1e-6)
+    rankcomplete_distmat(D, W, dim; μ=mean(D[W]), iters=100, tol=1e-6, verbose=true)
 
 Takes an incomplete squared Euclidean distance matrix `D` and fills in the missing entries indicated by the mask `W::BitArray` with 0 denoting a missing value. Returns the completed matrix and an `Eigen` object that allows reconstruction of the generating point set `X`.
 
@@ -90,8 +90,9 @@ This function works for larger matrices than `complete_distmat`, but is much les
 - `μ`: Initial value for unobserved entries.
 - `iters`: Maximum number of iterations
 - `tol`: Tolerance for the change in `D` between iterations.
+- `verbose`: print status
 """
-function rankcomplete_distmat(D, W, dim; μ=mean(D[W]), iters=100, tol=1e-6)
+function rankcomplete_distmat(D, W, dim; μ=mean(D[W]), iters=100, tol=1e-6, verbose=true)
     @assert all(==(1), diag(W)) "The diagonal is always observed and equal to 0. Make sure the diagonal of W is true"
     @assert all(iszero, diag(D)) "The diagonal of D is always 0"
     n    = size(D, 1)
@@ -104,7 +105,9 @@ function rankcomplete_distmat(D, W, dim; μ=mean(D[W]), iters=100, tol=1e-6)
         D2[W] .= D[W]
         D2[diagind(D2)] .= 0
         D2 .= max.(D2, 0)
-        sqrt(sum(abs2(d1-d2) for (d1,d2) in zip(Dold, D2)))/norm(D2) < tol && break
+        err = sqrt(sum(abs2(d1-d2) for (d1,d2) in zip(Dold, D2)))/norm(D2)
+        verbose && @info "Iter $iter Change: $err"
+        err < tol && break
         Dold .= D2
     end
     D2, E
