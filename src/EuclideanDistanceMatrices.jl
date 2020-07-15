@@ -11,14 +11,14 @@ using Turing, Distributions
 using Turing2MonteCarloMeasurements
 
 
-export complete_distmat, reconstruct_pointset, denoise_distmat, lowrankapprox, procrustes, posterior, align_to_mean
+export complete_distmat, rankcomplete_distmat, reconstruct_pointset, denoise_distmat, lowrankapprox, procrustes, posterior, align_to_mean
 
 """
     D̃, S = complete_distmat(D, W, λ = 2)
 
 Takes an incomplete squared Euclidean distance matrix `D` and fills in the missing entries indicated by the mask `W`. `W` is a `BitArray` or array of {0,1} with 0 denoting a missing value. Returns the completed matrix and an SVD object that allows reconstruction of the generating point set `X`.
 
-*NOTE* This function is only available after `using Convex, SCS`.
+*NOTE* This function is only available after `using Convex, SCS`, and it will run out of memory for large matrices. See `rankcomplete_distmat` for a less accuraet function that works for larger matrices.
 
 # Arguments:
 - `D`: The incomplete matrix
@@ -76,11 +76,45 @@ function complete_distmat(D, W, λ=2)
 end
 
 
+"""
+    rankcomplete_distmat(D, W, dim; μ=mean(D[W]), iters=100, tol=1e-6)
 
-function reconstruct_pointset(S::SVD,dim)
-    X  = Diagonal(sqrt.(S.S[1:dim]))*S.Vt[1:dim, :]
+Takes an incomplete squared Euclidean distance matrix `D` and fills in the missing entries indicated by the mask `W::BitArray` with 0 denoting a missing value. Returns the completed matrix and an `Eigen` object that allows reconstruction of the generating point set `X`.
+
+This function works for larger matrices than `complete_distmat`, but is much less accurate. See `complete_distmat` for examples.
+
+# Arguments:
+- `D`: The incomplete matrix
+- `W`: The mask
+- `dim`: The dimension of the points that created `D`
+- `μ`: Initial value for unobserved entries.
+- `iters`: Maximum number of iterations
+- `tol`: Tolerance for the change in `D` between iterations.
+"""
+function rankcomplete_distmat(D, W, dim; μ=mean(D[W]), iters=100, tol=1e-6)
+    @assert all(==(1), diag(W)) "The diagonal is always observed and equal to 0. Make sure the diagonal of W is true"
+    @assert all(iszero, diag(D)) "The diagonal of D is always 0"
+    n    = size(D, 1)
+    D2   = copy(D)
+    Dold = copy(D2)
+    D2[.!W] .= μ
+    local E
+    for iter = 1:iters
+        D2, E = eigval_th(Symmetric(D2), dim+2)
+        D2[W] .= D[W]
+        D2[diagind(D2)] .= 0
+        D2 .= max.(D2, 0)
+        sqrt(sum(abs2(d1-d2) for (d1,d2) in zip(Dold, D2)))/norm(D2) < tol && break
+        Dold .= D2
+    end
+    D2, E
 end
 
+function eigval_th(D, r)
+    E = eigen(D)
+    E.values[1:end-r+1] .= 0
+    E.vectors*Diagonal(E.values)*E.vectors', E
+end
 
 """
     reconstruct_pointset(D, dim)
@@ -94,7 +128,15 @@ function reconstruct_pointset(D::AbstractMatrix, dim)
     J = I - fill(1/n, n, n)
     G = -1/2 * J*D*J
     E = eigen(Symmetric(G))
-    Diagonal(sqrt.(max.(E.values[end-dim+1:end], 0)))*E.vectors[:, end-dim+1:end]'
+    reconstruct_pointset(E, dim)
+end
+
+function reconstruct_pointset(E::Eigen, dim)
+    Diagonal(sqrt.(max.(E.values[end-r+1:end], 0)))*E.vectors[:, end-r+1:end]'
+end
+
+function reconstruct_pointset(S::SVD,dim)
+    X  = Diagonal(sqrt.(S.S[1:dim]))*S.Vt[1:dim, :]
 end
 
 

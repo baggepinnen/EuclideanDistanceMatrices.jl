@@ -5,7 +5,8 @@
 
 Utilities for working with matrices of squared Euclidean distances.
 
-- `D̃ = complete_distmat(D, W)`: Fills in missing entries in an incomplete and noisy squared distance matrix. `W` is a binary mask indicating available values. (Algorithm 5 from the reference below).
+- `D̃,S = complete_distmat(D, W)`: Fills in missing entries in an incomplete and noisy squared distance matrix. `W` is a binary mask indicating available values. (Algorithm 5 from the reference below).
+- `D̃,E = rankcomplete_distmat(D, W, dim)`: Same as above, but works on larger matrices and is less accurate. (Algorithm 2 from the reference below).
 - `P = reconstruct_pointset(D, dim)` Takes a squared distance matrix or the SVD of one and reconstructs the set of points embedded in dimension `dim` that generated `D`; up to a translation and rotation/reflection. See `procrustes` for help with aligning the result to a collection of anchors.
 - `R,t = procrustes(X, Y)` Find rotation matrix `R` and translation vector `t` such that `R*X .+ t ≈ Y`
 - `denoise_distmat(D, dim, p=2)` Takes a noisy squared distance matrix and returns a denoised version. `p` denotes the "norm" used in measuring the error. `p=2` assumes that the error is Gaussian, whereas `p=1` assumes that the error is large but sparse. The robust factorization comes from [TotalLeastSquares.jl](https://github.com/baggepinnen/TotalLeastSquares.jl/).
@@ -53,7 +54,7 @@ part, chain = posterior(
 ```
 The returned object `part` is a named tuple containing all the internal variables that were sampled. The fields are of type `Particles` from [MonteCarloMeasurements.jl](https://github.com/baggepinnen/MonteCarloMeasurements.jl), representing the full posterior distribution of each quantity. The interesting fields are `part.P` which contains the posterior positions, and `part.d` which contains the estimated distances. The object `chain` contains the same information as `part`, but in the form of a `Turing.Chain` object.
 
-Note that the number of samples in the posterior will not be the same as the number requested by `nsamples` since Turing automatically drops bad samples etc. 
+Note that the number of samples in the posterior will not be the same as the number requested by `nsamples` since Turing automatically drops bad samples etc.
 
 
 We can verify that the estimated locations are closer to the true locations than the ones provided by the measurements alone, and plot the results

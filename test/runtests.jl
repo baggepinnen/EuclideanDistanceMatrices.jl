@@ -45,6 +45,7 @@ end
         @test (norm(D - D2) / norm(D)) < 1e-5
         @test (norm(W .* (D - D2)) / norm(D)) < 1e-5
 
+
         X = reconstruct_pointset(S, 2)
 
         # Verify that reconstructed `X` is correct up to rotation and translation
@@ -55,6 +56,21 @@ end
         X2 = reconstruct_pointset(D, 2)
         X2 = apply_procrustes(X2, X)
         @test norm(X - X2) / norm(X) < 1e-6
+
+
+
+
+        P = randn(2, 400)
+        D = pairwise(SqEuclidean(), P, dims = 2)
+        W = rand(size(D)...) .> 0.3 # Create a random mask
+        W = (W + W') .> 0           # It makes sense for the mask to be symmetric
+        W[diagind(W)] .= true
+        D0 = W .* D                 # Remove missing entries
+
+        D3, E = rankcomplete_distmat(D0, W, 2)
+
+        @test (norm(D - D3) / norm(D)) < 0.2
+        @test (norm(W .* (D - D3)) / norm(D)) < 1e-5
 
     end
 
@@ -208,3 +224,23 @@ end
     end
 
 end
+
+
+
+
+import NMF
+
+
+P = randn(2, 400)
+D = pairwise(SqEuclidean(), P, dims = 2)
+W = rand(size(D)...) .> 0.3 # Create a random mask
+W = (W + W') .> 0           # It makes sense for the mask to be symmetric
+W[diagind(W)] .= true
+D0 = W .* D                 # Remove missing entries
+
+
+ # initialize
+W, H = NMF.nndsvdar(X, 5)
+
+ # optimize
+NMF.solve!(NMF.ALSPGrad{Float64}(maxiter=50, tolg=1.0e-6), X, W, H)
