@@ -135,7 +135,7 @@ function reconstruct_pointset(D::AbstractMatrix, dim)
 end
 
 function reconstruct_pointset(E::Eigen, dim)
-    Diagonal(sqrt.(max.(E.values[end-r+1:end], 0)))*E.vectors[:, end-r+1:end]'
+    Diagonal(sqrt.(max.(E.values[end-dim+1:end], 0)))*E.vectors[:, end-dim+1:end]'
 end
 
 function reconstruct_pointset(S::SVD,dim)
