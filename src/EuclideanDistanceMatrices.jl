@@ -14,7 +14,7 @@ using Turing2MonteCarloMeasurements
 export complete_distmat, rankcomplete_distmat, reconstruct_pointset, denoise_distmat, lowrankapprox, procrustes, posterior, align_to_mean
 
 """
-    D̃, S = complete_distmat(D, W, λ = 2)
+    D̃, S = complete_distmat(D, W, λ = sqrt(count(W .== 0)))
 
 Takes an incomplete squared Euclidean distance matrix `D` and fills in the missing entries indicated by the mask `W`. `W` is a `BitArray` or array of {0,1} with 0 denoting a missing value. Returns the completed matrix and an SVD object that allows reconstruction of the generating point set `X`.
 
@@ -54,7 +54,7 @@ norm(P-P2)/norm(P) # Should be small
 Ref: Algorithm 5 from "Euclidean Distance Matrices: Essential Theory, Algorithms and Applications"
 Ivan Dokmanic, Reza Parhizkar, Juri Ranieri and Martin Vetterli https://arxiv.org/pdf/1502.07541.pdf
 """
-function complete_distmat(D, W, λ=2)
+function complete_distmat(D, W, λ=sqrt(count(W .== 0)))
     @assert all(==(1), diag(W)) "The diagonal is always observed and equal to 0. Make sure the diagonal of W is true"
     @assert all(iszero, diag(D)) "The diagonal of D is always 0"
     n = size(D, 1)

@@ -227,20 +227,38 @@ end
 
 
 
-
-import NMF
-
-
-P = randn(2, 400)
-D = pairwise(SqEuclidean(), P, dims = 2)
-W = rand(size(D)...) .> 0.3 # Create a random mask
-W = (W + W') .> 0           # It makes sense for the mask to be symmetric
-W[diagind(W)] .= true
-D0 = W .* D                 # Remove missing entries
-
-
- # initialize
-W, H = NMF.nndsvdar(X, 5)
-
- # optimize
-NMF.solve!(NMF.ALSPGrad{Float64}(maxiter=50, tolg=1.0e-6), X, W, H)
+# using SparseArrays, Distances
+# using LowRankModels
+#
+# P = randn(2, 4000)
+# D = pairwise(SqEuclidean(), P, dims = 2)
+# W = rand(size(D)...) .> 0.98 # Create a random mask
+# W = (W + W') .> 0           # It makes sense for the mask to be symmetric
+# W[diagind(W)] .= true
+# D0 = W .* D                 # Remove missing entries
+#
+# D0s = sparse(D0) + spdiagm(0=>fill(eps(),size(D0,1)))
+#
+#
+#
+# glrm = pca(D0s, 4, offset=true, scale=true)
+# # init_svd!(glrm)
+# init_nndsvd!(glrm)
+# # init_kmeanspp!(glrm)
+#
+# X,Y,ch = fit!(glrm, SparseProxGradParams(max_iter=400))
+# plot(ch.objective, yscale=:log10)
+#
+# D2 = X'Y
+#
+# (norm(D - D2) / norm(D))
+# @test (norm(D - D2) / norm(D)) < 0.2
+# @test (norm(W .* (D - D2)) / norm(D)) < 1e-5
+#
+#
+# D3,E = rankcomplete_distmat(D0, W, 2, tol=1e-4)
+# (norm(D - D3) / norm(D))
+#
+#
+# D4,E = D3
+# (norm(D - D4) / norm(D))
