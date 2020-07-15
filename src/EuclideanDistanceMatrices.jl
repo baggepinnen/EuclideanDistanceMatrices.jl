@@ -246,8 +246,8 @@ function posterior(
 
     if sampler isa Turing.Inference.InferenceAlgorithm
         @info "Starting sampling (this might take a while)"
-        @time chain = sample(m, sampler, nsamples)
-        nt = Particles(chain, crop=clamp(0, 500, nsamples-500))
+        @time chain = sample(m, sampler, nsamples, drop_warmup=true)
+        nt = Particles(chain)
         P = reshape(nt.P0, dim, N)
         nt = (nt..., P=P, d=[norm(P[:,i] - P[:,j]) for i in 1:N, j in 1:N])
         @info "Done"

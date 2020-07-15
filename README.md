@@ -53,6 +53,8 @@ part, chain = posterior(
 ```
 The returned object `part` is a named tuple containing all the internal variables that were sampled. The fields are of type `Particles` from [MonteCarloMeasurements.jl](https://github.com/baggepinnen/MonteCarloMeasurements.jl), representing the full posterior distribution of each quantity. The interesting fields are `part.P` which contains the posterior positions, and `part.d` which contains the estimated distances. The object `chain` contains the same information as `part`, but in the form of a `Turing.Chain` object.
 
+Note that the number of samples in the posterior will not be the same as the number requested by `nsamples` since Turing automatically drops bad samples etc. 
+
 
 We can verify that the estimated locations are closer to the true locations than the ones provided by the measurements alone, and plot the results
 ```julia

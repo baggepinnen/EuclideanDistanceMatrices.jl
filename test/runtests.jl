@@ -112,12 +112,11 @@ end
         part, chain = posterior(
             Pn,
             noisy_distances;
-            nsamples = 1500,
+            nsamples = 2000,
             sampler = NUTS(),
             σL = σL,
             σD = σD,
         )
-
 
         @test norm(mean.(part.P) - P) < norm(Pn - P)
 
@@ -183,7 +182,7 @@ end
         part, chain = posterior(
             [Pn source],
             noisy_distances;
-            nsamples = 1500,
+            nsamples = 2000,
             sampler = NUTS(),
             σL = σL,
             σD = σD,
@@ -199,10 +198,10 @@ end
             scatter!(
                 [part.P[1, end]],
                 [part.P[2, end]],
-                markersize = 10,
+                m = (:x, 8),
                 lab = "Est. Source",
             )
-            scatter!([source[1]], [source[2]], markersize = 10, lab = "True Source") |>
+            scatter!([source[1]], [source[2]], m = (:x, 8), lab = "True Source") |>
             display
         end
 
