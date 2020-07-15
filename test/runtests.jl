@@ -55,7 +55,7 @@ end
 
         X2 = reconstruct_pointset(D, 2)
         X2 = apply_procrustes(X2, X)
-        @test norm(X - X2) / norm(X) < 1e-6
+        @test norm(X - X2) / norm(X) < 1e-5
 
 
 

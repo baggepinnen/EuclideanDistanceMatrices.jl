@@ -187,6 +187,7 @@ end
     part, result = posterior(locations::AbstractMatrix, distances, args...; nsamples = 3000, sampler = NUTS(), σL = 0.3, σD = 0.3)
 
 Compute the full Bayesian posterior over locations given noisy measurements of both locations and distances.
+Missing values can be indicated by using either the `missing` element, or by providing a rough estimate and setting a very large standard deviation for the guessed element.
 
 # Arguments:
 - `locations`: A matrix with one point in each column.
@@ -196,8 +197,12 @@ Compute the full Bayesian posterior over locations given noisy measurements of b
 - `sampler`: Any of the samplers or `MAP/MLE` supported by Turing
 - `σL`: The noise std in the locations.
 - `σD`: The noise std in the distances.
+- `tdoa`: Indicates whether or not `distances` contains TDOA measurements. See note below.
 
 `part` contains `part.P` and `part.d` with the posterior over locations and distances.
+
+## TDOA
+When using `tdoa=true`, `distances` is expected to contain tuples `(i,j,tdoa)`, and the last column in `locations` is expected to contain an estimate of the source location. Note that the standard deviation for locations can be a vector, aiding in situations when this location is known with more or less accuracy than the sensors.
 
 # Example
 ```julia
@@ -229,7 +234,7 @@ end
 part, chain = posterior(
     Pn,
     noisy_distances;
-    nsamples = 1500,
+    nsamples = 2000,
     sampler = NUTS(),
     σL = σL,
     σD = σD
