@@ -24,7 +24,7 @@ Distributions = "0.22, 0.23"
 SCS = "0.6"
 StatsBase = "0.30, 0.31, 0.32, 0.33"
 TotalLeastSquares = "1"
-Turing = "0.13"
+Turing = "0.13, 0.14"
 julia = "1.4"
 
 [extras]
