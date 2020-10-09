@@ -19,7 +19,7 @@ Turing2MonteCarloMeasurements = "d5f69e58-3735-4fb1-9f31-04d391be4687"
 
 [compat]
 Convex = "0.13"
-Distances = "0.8, 0.9"
+Distances = "0.8, 0.9, 0.10"
 Distributions = "0.22, 0.23"
 MonteCarloMeasurements = "0.9"
 SCS = "0.6"
