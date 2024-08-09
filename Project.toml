@@ -18,7 +18,7 @@ Turing = "fce5fe82-541a-59a6-adf8-730c64b5f9a0"
 Turing2MonteCarloMeasurements = "d5f69e58-3735-4fb1-9f31-04d391be4687"
 
 [compat]
-Convex = "0.13"
+Convex = "0.13, 0.16"
 Distances = "0.8, 0.9"
 Distributions = "0.22, 0.23"
 MonteCarloMeasurements = "0.9"
