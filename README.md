@@ -12,6 +12,14 @@ Utilities for working with matrices of squared Euclidean distances.
 - `denoise_distmat(D, dim, p=2)` Takes a noisy squared distance matrix and returns a denoised version. `p` denotes the "norm" used in measuring the error. `p=2` assumes that the error is Gaussian, whereas `p=1` assumes that the error is large but sparse. The robust factorization comes from [TotalLeastSquares.jl](https://github.com/baggepinnen/TotalLeastSquares.jl/).
 - `posterior` Estimate the posterior distribution of locations given both noisy location measurements and distance measurements (not squared), see more details below.
 
+## Installation
+```julia
+using Pkg
+Pkg.add([
+    PackageSpec(url="https://github.com/baggepinnen/Turing2MonteCarloMeasurements.jl")
+    PackageSpec(url="https://github.com/baggepinnen/EuclideanDistanceMatrices.jl")
+])
+```
 
 ## Bayesian estimation of locations
 ### With distance measurements
