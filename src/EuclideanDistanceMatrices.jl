@@ -14,7 +14,7 @@ using Turing2MonteCarloMeasurements
 export complete_distmat, rankcomplete_distmat, reconstruct_pointset, denoise_distmat, lowrankapprox, procrustes, posterior, align_to_mean
 
 """
-    D̃, S = complete_distmat(D, W, λ = sqrt(count(W .== 0)))
+    D̃, S = complete_distmat(D, W, λ = sqrt(count(W .== 0)); optimizer = SCS.Optimizer)
 
 Takes an incomplete squared Euclidean distance matrix `D` and fills in the missing entries indicated by the mask `W`. `W` is a `BitArray` or array of {0,1} with 0 denoting a missing value. Returns the completed matrix and an SVD object that allows reconstruction of the generating point set `X`.
 
@@ -54,7 +54,7 @@ norm(P-P2)/norm(P) # Should be small
 Ref: Algorithm 5 from "Euclidean Distance Matrices: Essential Theory, Algorithms and Applications"
 Ivan Dokmanic, Reza Parhizkar, Juri Ranieri and Martin Vetterli https://arxiv.org/pdf/1502.07541.pdf
 """
-function complete_distmat(D, W, λ=sqrt(count(W .== 0)))
+function complete_distmat(D, W, λ=sqrt(count(W .== 0)); optimizer = SCS.Optimizer)
     @assert all(==(1), diag(W)) "The diagonal is always observed and equal to 0. Make sure the diagonal of W is true"
     @assert all(iszero, diag(D)) "The diagonal of D is always 0"
     n = size(D, 1)
@@ -65,8 +65,8 @@ function complete_distmat(D, W, λ=sqrt(count(W .== 0)))
     G = Convex.Variable((n-1, n-1))
     B = V*G*V'
     E = diag(B)*e' + e*diag(B)' - 2*B
-    problem = Convex.maximize(tr(G)- λ * norm(vec(W .* (E - D))), [G ∈ :SDP])
-    Convex.solve!(problem, SCS.Optimizer)
+    problem = Convex.maximize(tr(G)- λ * norm(vec(W .* (E - D))), [isposdef(G)])
+    Convex.solve!(problem, optimizer)
     Int(problem.status) == 1 || @error problem.status
     B  = Convex.evaluate(B)
     D2 = diag(B)*e' + e*diag(B)' - 2*B
@@ -263,36 +263,36 @@ function posterior(
     dim, N = size(locations)
     Nd = length(distances)
 
-    if tdoa
-        d = abs.(getindex.(distances, 3))
-        Turing.@model model(locations, distances, d, ::Type{T} = Float64) where {T} = begin
-            P0 ~ MvNormal(vec(locations), σL) # These denote the true locations
-            P = reshape(P0, dim, N)
-            dh = Vector{T}(undef, Nd) # These are the predicted distance measurements
-            for ind in eachindex(distances)
-                (i,j,_) = distances[ind]
-                di = norm(P[:,i] - P[:,end]) # Distance from source to i
-                dj = norm(P[:,j] - P[:,end]) # Distance from source to j
-                dh[ind] = abs(di-dj) # This is the predicted TDOA given the posterior locations
-            end
-            d ~ MvNormal(dh, σD) # Observe TDOAs
-        end
+    d = if tdoa
+        abs.(getindex.(distances, 3))
     else
-        d = (getindex.(distances, 3))
-        Turing.@model model(locations, distances, d, ::Type{T} = Float64) where {T} = begin
-            P0 ~ MvNormal(vec(locations), σL) # These denote the true locations
-            P = reshape(P0, dim, N)
-            dh = Vector{T}(undef, Nd) # These are the predicted distance measurements
-            for ind in eachindex(distances)
-                (i,j,_) = distances[ind]
-                dh[ind] = norm(P[:,i] - P[:,j]) # This is the predicted Euclidean distance given the posterior location
-            end
-            d ~ MvNormal(dh, σD) # Observe distances
-        end
+        (getindex.(distances, 3))
     end
 
+    Turing.@model function model_tdoa(locations, distances, d, ::Type{T} = Float64) where {T}
+        P0 ~ MvNormal(vec(locations), σL) # These denote the true locations
+        P = reshape(P0, dim, N)
+        dh = Vector{T}(undef, Nd) # These are the predicted distance measurements
+        for ind in eachindex(distances)
+            (i,j,_) = distances[ind]
+            di = norm(P[:,i] - P[:,end]) # Distance from source to i
+            dj = norm(P[:,j] - P[:,end]) # Distance from source to j
+            dh[ind] = abs(di-dj) # This is the predicted TDOA given the posterior locations
+        end
+        d ~ MvNormal(dh, σD) # Observe TDOAs
+    end
+    Turing.@model function model(locations, distances, d, ::Type{T} = Float64) where {T}
+        P0 ~ MvNormal(vec(locations), σL) # These denote the true locations
+        P = reshape(P0, dim, N)
+        dh = Vector{T}(undef, Nd) # These are the predicted distance measurements
+        for ind in eachindex(distances)
+            (i,j,_) = distances[ind]
+            dh[ind] = norm(P[:,i] - P[:,j]) # This is the predicted Euclidean distance given the posterior location
+        end
+        d ~ MvNormal(dh, σD) # Observe distances
+    end
 
-    m = model(locations, distances, d)
+    m = (tdoa ? model : model_tdoa)(locations, distances, d)
 
     if sampler isa Turing.Inference.InferenceAlgorithm
         @info "Starting sampling (this might take a while)"
