@@ -240,7 +240,7 @@ part, chain = posterior(
     σD = σD
 )
 
-norm(mean.(part.P) - P) < norm(Pn - P)
+norm(pmean.(part.P) - P) < norm(Pn - P)
 
 scatter(part.P[1,:], part.P[2,:], markersize=6, layout=2, sp=1)
 scatter!(P[1,:], P[2,:], lab="True positions", sp=1)
@@ -303,12 +303,16 @@ function posterior(
         @info "Done"
         return nt, chain
     elseif typeof(sampler) ∈ (Turing.MAP, Turing.MLE)
-        res = optimize(m, sampler, args...)
+        if sampler isa Turing.MAP
+            res = maximum_a_posteriori(m, args...)
+        else
+            res = maximum_likelihood(m, args...)
+        end
         c = StatsBase.coef(res)
         C = StatsBase.vcov(res)
         names = StatsBase.params(res)
 
-        Pinds = findfirst.([==("P0[$i]") for i in eachindex(locations)], Ref(names))
+        Pinds = findfirst.([==(Symbol("P0[$i]")) for i in eachindex(locations)], Ref(names))
         # dinds = findfirst.([==("d[$i]") for i in eachindex(distances)], Ref(names))
 
         Pde = Particles(MvNormal(Vector(c), Symmetric(Matrix(C) + 0.1*min(σL,σD)^2*I)))
@@ -326,7 +330,7 @@ end
 Takes an array of particles `P` and aligns all samples to the mean array using `procrustes`. This takes `P` from an estimate of absolute quantities to an estimate of relative quantities, which, in general, will exhibit lower variance.
 """
 function align_to_mean(P)
-    m = mean.(P)
+    m = pmean.(P)
     function apply_procrustes(X)
         R, t = procrustes(X, m)
         R * X .+ t

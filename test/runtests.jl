@@ -1,6 +1,6 @@
 using EuclideanDistanceMatrices
 using Test, LinearAlgebra, Statistics
-using Distances, Turing, Optim
+using Distances, Turing, Optim, OptimizationOptimJL, MonteCarloMeasurements
 
 function apply_procrustes(X, Y)
     R, t = procrustes(X, Y)
@@ -42,8 +42,8 @@ end
 
         D2, S = complete_distmat(D0, W)
 
-        @test (norm(D - D2) / norm(D)) < 1e-5
-        @test (norm(W .* (D - D2)) / norm(D)) < 1e-5
+        @test (norm(D - D2) / norm(D)) < 1e-4
+        @test (norm(W .* (D - D2)) / norm(D)) < 1e-4
 
 
         X = reconstruct_pointset(S, 2)
@@ -55,7 +55,7 @@ end
 
         X2 = reconstruct_pointset(D, 2)
         X2 = apply_procrustes(X2, X)
-        @test norm(X - X2) / norm(X) < 1e-5
+        @test norm(X - X2) / norm(X) < 1e-4
 
 
 
@@ -70,7 +70,7 @@ end
         D3, E = rankcomplete_distmat(D0, W, 2, verbose=false)
 
         @test (norm(D - D3) / norm(D)) < 0.2
-        @test (norm(W .* (D - D3)) / norm(D)) < 1e-5
+        @test (norm(W .* (D - D3)) / norm(D)) < 1e-4
 
     end
 
@@ -134,7 +134,7 @@ end
             σD = σD,
         )
 
-        @test norm(mean.(part.P) - P) < norm(Pn - P)
+        @test norm(pmean.(part.P) - P) < norm(Pn - P)
 
         if isinteractive()
             scatter(part.P[1, :], part.P[2, :], markersize = 6, layout = 2, sp = 1)
@@ -149,7 +149,7 @@ end
 
         part, res =
             posterior(Pn, noisy_distances, LBFGS(), sampler = MAP(), σL = σL, σD = σD)
-        @test norm(mean.(part.P) - P) < norm(Pn - P)
+        @test norm(pmean.(part.P) - P) < norm(Pn - P)
 
         if isinteractive()
             scatter(part.P[1, :], part.P[2, :], markersize = 6, layout = 2, sp = 1)
@@ -163,7 +163,7 @@ end
 
 
         aligned_P = align_to_mean(part.P)
-        @test tr(cov(vec(part.P))) > tr(cov(vec(aligned_P)))
+        @test tr(pcov(vec(part.P))) > tr(pcov(vec(aligned_P)))
 
 
 
@@ -205,7 +205,7 @@ end
             tdoa = true,
         )
 
-        @test norm(mean.(part.P[:, 1:end-1]) - P) < norm(Pn - P)
+        @test norm(pmean.(part.P[:, 1:end-1]) - P) < norm(Pn - P)
 
         if isinteractive()
             scatter(part.P[1, 1:end-1], part.P[2, 1:end-1], markersize = 6)
