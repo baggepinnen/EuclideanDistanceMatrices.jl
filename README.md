@@ -25,7 +25,7 @@ Pkg.add([
 ### With distance measurements
 If both noisy position estimates and noisy distance measurements are available, we can estimate the full Bayesian posterior over positions. To this end, the function `posterior` is available. We demonstrate how it's used with an example, and start by generating some synthetic data:
 ```julia
-using EuclideanDistanceMatrices, Turing
+using EuclideanDistanceMatrices, Turing, MonteCarloMeasurements, Test
 N = 10    # Number of points
 σL = 0.1  # Location noise std
 σD = 0.01 # Distance noise std (measured in the same unit as positions)
@@ -67,7 +67,7 @@ Note that the number of samples in the posterior will not be the same as the num
 
 We can verify that the estimated locations are closer to the true locations than the ones provided by the measurements alone, and plot the results
 ```julia
-norm(mean.(part.P) - P) < norm(Pn - P)
+@test norm(pmean.(part.P) - P) < norm(Pn - P)
 
 scatter(part.P[1,:], part.P[2,:], markersize=6)
 scatter!(P[1,:], P[2,:], lab="True positions")
@@ -119,7 +119,7 @@ part, chain = posterior(
     tdoa     = true, # Indicating that we are providing TDOA measurements
 )
 
-norm(mean.(part.P[:, 1:end-1]) - P) < norm(Pn - P)
+@test norm(pmean.(part.P[:, 1:end-1]) - P) < norm(Pn - P)
 ```
 Once again, we visualize the resulting estimate
 ```julia
