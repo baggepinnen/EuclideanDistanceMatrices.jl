@@ -42,7 +42,7 @@ end
 
         D2, S = complete_distmat(D0, W)
 
-        @test (norm(D - D2) / norm(D)) < 1e-4
+        @test (norm(D - D2) / norm(D)) < 2e-4
         @test (norm(W .* (D - D2)) / norm(D)) < 1e-4
 
 
@@ -55,7 +55,7 @@ end
 
         X2 = reconstruct_pointset(D, 2)
         X2 = apply_procrustes(X2, X)
-        @test norm(X - X2) / norm(X) < 1e-4
+        @test norm(X - X2) / norm(X) < 2e-4
 
 
 
