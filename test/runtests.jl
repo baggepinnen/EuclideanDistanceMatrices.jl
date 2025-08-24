@@ -1,6 +1,6 @@
 using EuclideanDistanceMatrices
 using Test, LinearAlgebra, Statistics
-using Distances, Turing, Optim, OptimizationOptimJL, MonteCarloMeasurements
+using Distances, Turing, Optim, MonteCarloMeasurements
 
 function apply_procrustes(X, Y)
     R, t = procrustes(X, Y)

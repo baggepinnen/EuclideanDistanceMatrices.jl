@@ -273,7 +273,7 @@ function posterior(
         P0 ~ MvNormal(vec(locations), σL) # These denote the true locations
         P = reshape(P0, dim, N)
         dh = Vector{T}(undef, Nd) # These are the predicted distance measurements
-        for ind in eachindex(distances)
+        @views for ind in eachindex(distances)
             (i,j,_) = distances[ind]
             di = norm(P[:,i] - P[:,end]) # Distance from source to i
             dj = norm(P[:,j] - P[:,end]) # Distance from source to j
@@ -285,7 +285,7 @@ function posterior(
         P0 ~ MvNormal(vec(locations), σL) # These denote the true locations
         P = reshape(P0, dim, N)
         dh = Vector{T}(undef, Nd) # These are the predicted distance measurements
-        for ind in eachindex(distances)
+        @views for ind in eachindex(distances)
             (i,j,_) = distances[ind]
             dh[ind] = norm(P[:,i] - P[:,j]) # This is the predicted Euclidean distance given the posterior location
         end
