@@ -1,7 +1,7 @@
 name = "EuclideanDistanceMatrices"
 uuid = "c8f64d0f-e1bf-44f5-895a-65a798a2fd63"
-authors = ["Fredrik Bagge Carlson"]
 version = "0.1.0"
+authors = ["Fredrik Bagge Carlson"]
 
 [deps]
 Convex = "f65535da-76fb-5f13-bab9-19810c17039a"
@@ -25,7 +25,7 @@ MonteCarloMeasurements = "1"
 SCS = "2"
 StatsBase = "0.30, 0.31, 0.32, 0.33, 0.34"
 TotalLeastSquares = "1"
-Turing = "0.35"
+Turing = "0.35, 0.43"
 julia = "1.10"
 
 [extras]
