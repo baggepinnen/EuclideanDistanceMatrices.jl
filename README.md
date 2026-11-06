@@ -1,6 +1,6 @@
 # EuclideanDistanceMatrices
 
-[![Build Status](https://github.com/baggepinnen/EuclideanDistanceMatrices.jl/workflows/CI/badge.svg)](https://github.com/baggepinnen/EuclideanDistanceMatrices.jl/actions)
+[![Build Status](https://github.com/baggepinnen/EuclideanDistanceMatrices.jl/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/baggepinnen/EuclideanDistanceMatrices.jl/actions/workflows/ci.yml)
 [![Coverage](https://codecov.io/gh/baggepinnen/EuclideanDistanceMatrices.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/baggepinnen/EuclideanDistanceMatrices.jl)
 
 Utilities for working with matrices of squared Euclidean distances.
@@ -15,10 +15,7 @@ Utilities for working with matrices of squared Euclidean distances.
 ## Installation
 ```julia
 using Pkg
-Pkg.add([
-    PackageSpec(url="https://github.com/baggepinnen/Turing2MonteCarloMeasurements.jl")
-    PackageSpec(url="https://github.com/baggepinnen/EuclideanDistanceMatrices.jl")
-])
+Pkg.add(url="https://github.com/baggepinnen/EuclideanDistanceMatrices.jl")
 ```
 
 ## Bayesian estimation of locations
@@ -60,10 +57,7 @@ part, chain = posterior(
     σD = σD  # This can also be a vector of std:s for each location, see ?MvNormal for alternatives
 )
 ```
-The returned object `part` is a named tuple containing all the internal variables that were sampled. The fields are of type `Particles` from [MonteCarloMeasurements.jl](https://github.com/baggepinnen/MonteCarloMeasurements.jl), representing the full posterior distribution of each quantity. The interesting fields are `part.P` which contains the posterior positions, and `part.d` which contains the estimated distances. The object `chain` contains the same information as `part`, but in the form of a `Turing.Chain` object.
-
-Note that the number of samples in the posterior will not be the same as the number requested by `nsamples` since Turing automatically drops bad samples etc.
-
+The returned object `part` is a named tuple containing all the internal variables that were sampled. The fields are of type `Particles` from [MonteCarloMeasurements.jl](https://github.com/baggepinnen/MonteCarloMeasurements.jl), representing the full posterior distribution of each quantity. The interesting fields are `part.P` which contains the posterior positions, and `part.d` which contains the estimated distances. The object `chain` contains the same information as `part`, but in the form of a chain object (a `FlexiChain` by default).
 
 We can verify that the estimated locations are closer to the true locations than the ones provided by the measurements alone, and plot the results
 ```julia
@@ -77,7 +71,7 @@ scatter!(Pn[1,:], Pn[2,:], lab="Measured positions")
 
 
 
-Under the hood, [Turing.jl](https://turing.ml/dev/) is used to sample from the posterior. If you have a lot of points, it will take a while to run this function. If the sampling takes too long time, you may try estimating an MAP estimate instead. To do this, run `using Optim` and then pass `sampler = MAP()`. More docs on MAP estimation is found [here](https://turing.ml/dev/docs/using-turing/guide#maximum-likelihood-and-maximum-a-posterior-estimates).
+Under the hood, [Turing.jl](https://turing.ml/dev/) is used to sample from the posterior. If you have a lot of points, it will take a while to run this function. If the sampling takes too long time, you may try estimating an MAP estimate instead. To do this, pass `sampler = MAP()`. An optimizer supported by Optimization.jl may be passed as an additional positional argument, e.g., `LBFGS()` from Optim.jl: `posterior(Pn, noisy_distances, LBFGS(); sampler = MAP())`. More documentation on MAP estimation is found [here](https://turinglang.org/docs/usage/mode-estimation/).
 
 
 ### With TDOA measurements (time difference of arrival, i.e., differences of distances)
@@ -145,13 +139,6 @@ P_relative = align_to_mean(part.P)
 tr(cov(vec(part.P))) > tr(cov(vec(P_relative))) # Test that the covariance matrix is "smaller"
 ```
 
-
-
-## Installation
-```julia
-using Pkg
-pkg"add https://github.com/baggepinnen/EuclideanDistanceMatrices.jl"
-```
 
 
 ### References

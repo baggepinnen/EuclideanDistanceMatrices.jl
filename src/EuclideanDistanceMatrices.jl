@@ -1,14 +1,12 @@
 module EuclideanDistanceMatrices
 
 using LinearAlgebra, Statistics
-import Pkg
 using StatsBase
 using TotalLeastSquares
 import Convex
 using SCS
 using MonteCarloMeasurements
 using Turing, Distributions
-using Turing2MonteCarloMeasurements
 
 
 export complete_distmat, rankcomplete_distmat, reconstruct_pointset, denoise_distmat, lowrankapprox, procrustes, posterior, align_to_mean
@@ -18,7 +16,7 @@ export complete_distmat, rankcomplete_distmat, reconstruct_pointset, denoise_dis
 
 Takes an incomplete squared Euclidean distance matrix `D` and fills in the missing entries indicated by the mask `W`. `W` is a `BitArray` or array of {0,1} with 0 denoting a missing value. Returns the completed matrix and an SVD object that allows reconstruction of the generating point set `X`.
 
-*NOTE* This function is only available after `using Convex, SCS`, and it will run out of memory for large matrices. See `rankcomplete_distmat` for a less accuraet function that works for larger matrices.
+*NOTE* This function solves a semidefinite program and requires a large amount of memory for large matrices. See `rankcomplete_distmat` for a less accurate function that works for larger matrices.
 
 # Arguments:
 - `D`: The incomplete matrix
@@ -184,7 +182,7 @@ function procrustes(X,Y)
 end
 
 """
-    part, result = posterior(locations::AbstractMatrix, distances, args...; nsamples = 3000, sampler = NUTS(), σL = 0.3, σD = 0.3)
+    part, result = posterior(locations::AbstractMatrix, distances, args...; nsamples = 3000, sampler = NUTS(), σL = 0.3, σD = 0.3, tdoa = false)
 
 Compute the full Bayesian posterior over locations given noisy measurements of both locations and distances.
 Missing values can be indicated by using either the `missing` element, or by providing a rough estimate and setting a very large standard deviation for the guessed element.
@@ -192,14 +190,14 @@ Missing values can be indicated by using either the `missing` element, or by pro
 # Arguments:
 - `locations`: A matrix with one point in each column.
 - `distances`: A vector of tuples `(i,j,d)` where `i,j` denotes the indices between the distance measured is `d` (not squared).
-- `args`: If any provided, they are sent to `optimize`. Can be used to supply a choice of optimizer of `MAP` estimation.
+- `args`: If any provided, they are sent to `maximum_a_posteriori/maximum_likelihood`. Can be used to supply a choice of optimizer for `MAP/MLE` estimation, any solver supported by Optimization.jl.
 - `nsamples`: How many samples to draw for MCMC sampling.
 - `sampler`: Any of the samplers or `MAP/MLE` supported by Turing
 - `σL`: The noise std in the locations.
 - `σD`: The noise std in the distances.
 - `tdoa`: Indicates whether or not `distances` contains TDOA measurements. See note below.
 
-`part` contains `part.P` and `part.d` with the posterior over locations and distances.
+`part` contains `part.P` and `part.d` with the posterior over locations and distances. `result` is the chain produced by sampling, or the result of the mode estimation.
 
 ## TDOA
 When using `tdoa=true`, `distances` is expected to contain tuples `(i,j,tdoa)`, and the last column in `locations` is expected to contain an estimate of the source location. Note that the standard deviation for locations can be a vector, aiding in situations when this location is known with more or less accuracy than the sensors.
@@ -270,7 +268,7 @@ function posterior(
     end
 
     Turing.@model function model_tdoa(locations, distances, d, ::Type{T} = Float64) where {T}
-        P0 ~ MvNormal(vec(locations), σL) # These denote the true locations
+        P0 ~ isonormal(vec(locations), σL) # These denote the true locations
         P = reshape(P0, dim, N)
         dh = Vector{T}(undef, Nd) # These are the predicted distance measurements
         @views for ind in eachindex(distances)
@@ -279,49 +277,50 @@ function posterior(
             dj = norm(P[:,j] - P[:,end]) # Distance from source to j
             dh[ind] = abs(di-dj) # This is the predicted TDOA given the posterior locations
         end
-        d ~ MvNormal(dh, σD) # Observe TDOAs
+        d ~ isonormal(dh, σD) # Observe TDOAs
     end
     Turing.@model function model(locations, distances, d, ::Type{T} = Float64) where {T}
-        P0 ~ MvNormal(vec(locations), σL) # These denote the true locations
+        P0 ~ isonormal(vec(locations), σL) # These denote the true locations
         P = reshape(P0, dim, N)
         dh = Vector{T}(undef, Nd) # These are the predicted distance measurements
         @views for ind in eachindex(distances)
             (i,j,_) = distances[ind]
             dh[ind] = norm(P[:,i] - P[:,j]) # This is the predicted Euclidean distance given the posterior location
         end
-        d ~ MvNormal(dh, σD) # Observe distances
+        d ~ isonormal(dh, σD) # Observe distances
     end
 
-    m = (tdoa ? model : model_tdoa)(locations, distances, d)
+    m = (tdoa ? model_tdoa : model)(locations, distances, d)
+    # The likelihood is multimodal, the measured locations are used as initial guess
+    initial_params = InitFromParams((; P0 = vec(locations)))
 
-    if sampler isa Turing.Inference.InferenceAlgorithm
-        @info "Starting sampling (this might take a while)"
-        @time chain = sample(m, sampler, nsamples, drop_warmup=true)
-        nt = Particles(chain)
-        P = reshape(nt.P0, dim, N)
-        nt = (nt..., P=P, d=[norm(P[:,i] - P[:,j]) for i in 1:N, j in 1:N])
-        @info "Done"
-        return nt, chain
-    elseif typeof(sampler) ∈ (Turing.MAP, Turing.MLE)
-        if sampler isa Turing.MAP
-            res = maximum_a_posteriori(m, args...)
+    if sampler isa Union{Turing.MAP, Turing.MLE}
+        res = if sampler isa Turing.MAP
+            maximum_a_posteriori(m, args...; initial_params)
         else
-            res = maximum_likelihood(m, args...)
+            maximum_likelihood(m, args...; initial_params)
         end
         c = StatsBase.coef(res)
         C = StatsBase.vcov(res)
-        names = StatsBase.params(res)
+        names = string.(StatsBase.coefnames(res))
 
-        Pinds = findfirst.([==(Symbol("P0[$i]")) for i in eachindex(locations)], Ref(names))
-        # dinds = findfirst.([==("d[$i]") for i in eachindex(distances)], Ref(names))
+        Pinds = [findfirst(==("P0[$i]"), names) for i in eachindex(locations)]
 
-        Pde = Particles(MvNormal(Vector(c), Symmetric(Matrix(C) + 0.1*min(σL,σD)^2*I)))
+        Pde = Particles(MvNormal(Vector(c), Symmetric(Matrix(C) + 0.1*minimum(min.(σL,σD))^2*I)))
         P = reshape(Pde[Pinds], dim, N)
-        # de = Pde[dinds]
-        (P=P, d=[norm(P[:,i] - P[:,j]) for i in 1:N, j in 1:N]), res
+        return (P=P, d=[norm(P[:,i] - P[:,j]) for i in 1:N, j in 1:N]), res
     end
-    # chain
+    @info "Starting sampling (this might take a while)"
+    @time chain = sample(m, sampler, nsamples; initial_params)
+    nt = Particles(chain, NamedTuple)
+    P = reshape(nt.P0, dim, N)
+    nt = (nt..., P=P, d=[norm(P[:,i] - P[:,j]) for i in 1:N, j in 1:N])
+    @info "Done"
+    return nt, chain
 end
+
+isonormal(μ, σ::Real) = MvNormal(μ, abs2(σ) * I)
+isonormal(μ, σ::AbstractVector) = MvNormal(μ, Diagonal(abs2.(σ)))
 
 
 """
