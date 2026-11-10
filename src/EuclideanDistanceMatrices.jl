@@ -25,9 +25,9 @@ Takes an incomplete squared Euclidean distance matrix `D` and fills in the missi
 
 # Example:
 ```julia
-using EuclideanDistanceMatrices, Distances
+using EuclideanDistanceMatrices, Distances, LinearAlgebra
 P = randn(2,40)
-D = pairwise(SqEuclidean(), P)
+D = pairwise(SqEuclidean(), P, dims=2)
 W = rand(size(D)...) .> 0.3 # Create a random mask
 W = (W + W') .> 0           # It makes sense for the mask to be symmetric
 W[diagind(W)] .= true

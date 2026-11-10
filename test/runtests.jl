@@ -1,3 +1,4 @@
+ENV["GKSwstype"] = "100" # Headless plotting
 using EuclideanDistanceMatrices
 using Test, LinearAlgebra, Statistics
 using Distances, Turing, Optim, MonteCarloMeasurements
@@ -221,6 +222,24 @@ end
             display
         end
 
+    end
+
+    @testset "README examples" begin
+        @info "Testing README examples"
+        readme = read(joinpath(@__DIR__, "..", "README.md"), String)
+        blocks = [m.captures[1] for m in eachmatch(r"```julia\n(.*?)```"s, readme)]
+        # The installation block is skipped, the package is already available in the test environment
+        filter!(b -> !occursin("Pkg.add", b), blocks)
+        @test !isempty(blocks)
+        mktempdir() do dir
+            file = joinpath(dir, "readme_examples.jl")
+            write(file, join(blocks, "\n"))
+            sandbox = Module(:ReadmeSandbox)
+            Core.eval(sandbox, :(include(x) = Base.include($sandbox, x)))
+            cd(dir) do
+                @test (Base.include(sandbox, file); true)
+            end
+        end
     end
 
 end

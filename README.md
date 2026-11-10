@@ -15,21 +15,22 @@ Utilities for working with matrices of squared Euclidean distances.
 ## Installation
 ```julia
 using Pkg
-Pkg.add(url="https://github.com/baggepinnen/EuclideanDistanceMatrices.jl")
+Pkg.add("EuclideanDistanceMatrices")
 ```
+The examples below additionally use Turing, MonteCarloMeasurements, Distances and Plots.
 
 ## Bayesian estimation of locations
 ### With distance measurements
 If both noisy position estimates and noisy distance measurements are available, we can estimate the full Bayesian posterior over positions. To this end, the function `posterior` is available. We demonstrate how it's used with an example, and start by generating some synthetic data:
 ```julia
-using EuclideanDistanceMatrices, Turing, MonteCarloMeasurements, Test
+using EuclideanDistanceMatrices, Turing, MonteCarloMeasurements, Distances, LinearAlgebra, Plots, Test
 N = 10    # Number of points
 σL = 0.1  # Location noise std
 σD = 0.01 # Distance noise std (measured in the same unit as positions)
 
 P  = randn(2,N)                       # These are the true locations
 Pn = P + σL*randn(size(P))            # Noisy locations
-D  = pairwise(Euclidean(), P, dims=2) # True distance matrix (this function exoects distances, not squared distances).
+D  = pairwise(Euclidean(), P, dims=2) # True distance matrix (this function expects distances, not squared distances).
 Dn = D + σD*randn(size(D))            # Noisy distance matrix
 Dn[diagind(Dn)] .= 0 # The diagonal is always 0
 
@@ -53,8 +54,8 @@ part, chain = posterior(
     distances;
     nsamples = 2000,
     sampler = NUTS(),
-    σL = σL, # This can also be a vector of std:s for each location, see ?MvNormal for alternatives
-    σD = σD  # This can also be a vector of std:s for each location, see ?MvNormal for alternatives
+    σL = σL, # This can also be a vector with one std for each element of vec(Pn)
+    σD = σD  # This can also be a vector with one std for each distance measurement
 )
 ```
 The returned object `part` is a named tuple containing all the internal variables that were sampled. The fields are of type `Particles` from [MonteCarloMeasurements.jl](https://github.com/baggepinnen/MonteCarloMeasurements.jl), representing the full posterior distribution of each quantity. The interesting fields are `part.P` which contains the posterior positions, and `part.d` which contains the estimated distances. The object `chain` contains the same information as `part`, but in the form of a chain object (a `FlexiChain` by default).
@@ -71,7 +72,7 @@ scatter!(Pn[1,:], Pn[2,:], lab="Measured positions")
 
 
 
-Under the hood, [Turing.jl](https://turing.ml/dev/) is used to sample from the posterior. If you have a lot of points, it will take a while to run this function. If the sampling takes too long time, you may try estimating an MAP estimate instead. To do this, pass `sampler = MAP()`. An optimizer supported by Optimization.jl may be passed as an additional positional argument, e.g., `LBFGS()` from Optim.jl: `posterior(Pn, noisy_distances, LBFGS(); sampler = MAP())`. More documentation on MAP estimation is found [here](https://turinglang.org/docs/usage/mode-estimation/).
+Under the hood, [Turing.jl](https://turinglang.org/docs/) is used to sample from the posterior. If you have a lot of points, it will take a while to run this function. If the sampling takes too long time, you may try estimating an MAP estimate instead. To do this, pass `sampler = MAP()`. An optimizer supported by Optimization.jl may be passed as an additional positional argument, e.g., `LBFGS()` from Optim.jl: `posterior(Pn, distances, LBFGS(); sampler = MAP())`. More documentation on MAP estimation is found [here](https://turinglang.org/docs/usage/mode-estimation/).
 
 
 ### With TDOA measurements (time difference of arrival, i.e., differences of distances)
@@ -109,7 +110,7 @@ part, chain = posterior(
     nsamples = 2000,
     sampler  = NUTS(),
     σL       = σL,
-    σD       = σD, # This can also be a vector of std:s for each location, see ?MvNormal for alternatives
+    σD       = σD, # This can also be a vector with one std for each TDOA measurement
     tdoa     = true, # Indicating that we are providing TDOA measurements
 )
 
@@ -136,7 +137,7 @@ scatter!([source[1]], [source[2]], m = (:x, 8), lab = "True Source") |> display
 The function `posterior` estimates the *absolute* positions of the sensors in the coordinate system used to provide the location measurements. Oftentimes, the relative positions between the sensors are sufficient, and are also easier to estimate. Estimates of the relative positions are available in the resulting samples from the posterior distribution, but hidden within the samples. If we draw 2000 samples from the posterior, the absolute coordinates of each sample can be aligned to the mean of all samples (using `procrustes`), after which 2000 samples of the relative positions are available. This relative estimate will have lower variance than the absolute estimate. To facilitate this alignment, we have the function
 ```julia
 P_relative = align_to_mean(part.P)
-tr(cov(vec(part.P))) > tr(cov(vec(P_relative))) # Test that the covariance matrix is "smaller"
+@test tr(pcov(vec(part.P))) > tr(pcov(vec(P_relative))) # Test that the covariance matrix is "smaller"
 ```
 
 
