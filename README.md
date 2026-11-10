@@ -10,7 +10,7 @@ Utilities for working with matrices of squared Euclidean distances.
 - `P = reconstruct_pointset(D, dim)` Takes a squared distance matrix or the SVD of one and reconstructs the set of points embedded in dimension `dim` that generated `D`; up to a translation and rotation/reflection. See `procrustes` for help with aligning the result to a collection of anchors.
 - `R,t = procrustes(X, Y)` Find rotation matrix `R` and translation vector `t` such that `R*X .+ t ≈ Y`
 - `denoise_distmat(D, dim, p=2)` Takes a noisy squared distance matrix and returns a de-noised version. `p` denotes the "norm" used in measuring the error. `p=2` assumes that the error is Gaussian, whereas `p=1` assumes that the error is large but sparse. The robust factorization comes from [TotalLeastSquares.jl](https://github.com/baggepinnen/TotalLeastSquares.jl/).
-- `posterior` Estimate the posterior distribution of locations given both noisy location measurements and distance measurements (not squared), see more details below.
+- `posterior` Estimate the posterior distribution of locations given both noisy location measurements and distance measurements (not squared), see more details below. This function is defined in a package extension and is available after `using Turing`.
 
 ## Installation
 ```julia
