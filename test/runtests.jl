@@ -1,7 +1,20 @@
 ENV["GKSwstype"] = "100" # Headless plotting
 using EuclideanDistanceMatrices
 using Test, LinearAlgebra, Statistics
-using Distances, Turing, Optim, MonteCarloMeasurements
+
+const TuringExt = :EuclideanDistanceMatricesTuringExt
+@testset "Turing extension is loaded only with Turing" begin
+    @test Base.get_extension(EuclideanDistanceMatrices, TuringExt) === nothing
+    @test isempty(methods(posterior))
+end
+
+using Turing # Loading Turing alone is sufficient to load the extension
+@testset "Turing extension is loaded with Turing" begin
+    @test Base.get_extension(EuclideanDistanceMatrices, TuringExt) !== nothing
+    @test !isempty(methods(posterior))
+end
+
+using Distances, Optim, MonteCarloMeasurements
 
 function apply_procrustes(X, Y)
     R, t = procrustes(X, Y)
